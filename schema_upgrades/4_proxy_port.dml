@@ -1,0 +1,2 @@
+insert into simple_config ( key , value ) values ( 'proxy_port' , 10000 );
+

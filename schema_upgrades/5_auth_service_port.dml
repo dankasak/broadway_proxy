@@ -1,0 +1,1 @@
+insert into simple_config ( key , value ) values ( 'auth_service_port' , 10001 );
