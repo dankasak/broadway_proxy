@@ -57,6 +57,22 @@ if ( my $row = $sth->fetchrow_hashref ) {
     die( "Couldn't find auth service port in simple_config!" );
 }
 
+# Fetch the user app service port
+
+my $user_app_service_port;
+
+$sth = $dbh->prepare( "select value from simple_config where key = 'user_app_service_port'" )
+  || die( DBI->errstr );
+
+$sth->execute()
+  || die( $sth->errstr );
+
+if ( my $row = $sth->fetchrow_hashref ) {
+    $user_app_service_port = $row->{value};
+} else {
+    die( "Couldn't find auth service port in simple_config!" );
+}
+
 ########################################################################################################
 # This code is based off the following example:
 # https://renenyffenegger.ch/notes/development/languages/Perl/modules/HTTP/Server/Simple/CGI/webserver
@@ -222,7 +238,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
                 
                 $sth->execute(
                     $auth_key
-                  , 10002 # $port - TODO - dynamic
+                  , $user_app_service_port
                   , $name_provided
                   , md5_hex( $password )
                 ) || print LOG "DB error: " . $sth->errst . "\n";

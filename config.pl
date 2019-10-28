@@ -225,7 +225,20 @@ sub new {
                                    }
       }
     );
-
+    
+    $self->{simple_config} = Gtk3::Ex::DBI::Datasheet->new(
+      {
+          dbh                   => $options->{dbh}
+        , sql                   => {
+                                       select      => "*"
+                                     , from        => "simple_config"
+                                   }
+        , auto_incrementing     => FALSE
+        , vbox                  => $self->{builder}->get_object( 'simple_config_box' )
+        , auto_tools_box        => TRUE
+      }
+    );
+    
     return $self;
     
 }
