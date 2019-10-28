@@ -5,18 +5,18 @@ A session manager and transparent proxy for gtk/broadway applications
 ## Pre-Installation
 
 To install dependencies for CentOS 7.7:
-> yum install \\
->  perl-Gtk3 \\
->  perl-XML-Simple \\
->  perl-DBD-SQLite \\
->  perl-HTTP-Server-Simple \\
->  perl-File-Slurp
+`yum install
+  perl-Gtk3 \
+  perl-XML-Simple \
+  perl-DBD-SQLite \
+  perl-HTTP-Server-Simple \
+  perl-File-Slurp`
 
 Some dependencies are not available via yum:
 
-> unsetenv LD_LIBRARY_PATH
-> perl -MCPAN -e 'install Gtk3::Ex::DBI::Form'
-> perl -MCPAN -e 'install Data::GUID'
+`unsetenv LD_LIBRARY_PATH
+ perl -MCPAN -e 'install Gtk3::Ex::DBI::Form'
+ perl -MCPAN -e 'install Data::GUID'`
 
 
 ## Initial Configuration
