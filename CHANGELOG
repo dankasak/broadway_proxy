@@ -1,0 +1,4 @@
+02.11.17/fp
+fixed - redirect exec process output to logfile
+fixed - auth service: reconnect to existing session
+

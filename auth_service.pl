@@ -177,8 +177,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
         my $self = shift;
         my $cgi  = shift;
         
-        my $auth_cookie = $cgi->cookie();
-        
+        my $auth_cookie = $cgi->cookie();        
         my $path = $cgi->path_info;
         
         open LOG , $LOGFILE
@@ -225,23 +224,38 @@ if ( my $row = $sth->fetchrow_hashref ) {
                 print LOG "Got auth row:\n" . Dumper( $row ) . "\n";
                 
                 $message = "name: $row->{username}\n";
+
                 my $auth_token = Data::GUID->new;
+                my $auth_key = $auth_token->as_string;
                 
                 print LOG "Checkpoint 3\n";
                               
                 # update the auth table with last_authenticated, auth_key & port
-                $sql = "update users set last_authenticated = datetime('now', 'localtime'), auth_key = ?, port = ?\n"
-                     . " , display_number = null where username = ? and password = ?";
-                
-                my $sth = $dbh->prepare( $sql ) || print LOG "DB error: " . $dbh->errstr . "\n";
-                
+                $sql = <<'END_SQL';
+                  update users
+                  set
+                    last_authenticated = datetime('now', 'localtime'),
+                    auth_key = ?,
+                    port = ?,
+                    display_number = null
+                  where username = ? and password = ?
+END_SQL
+                my $sth = $dbh->prepare( $sql )
+                  || print LOG "DB error: " . $dbh->errstr . "\n";
+
+                my $port = $user_app_service_port;
+
+                # reconnect to last saved db session
+                if ($row->{auth_key} and $row->{port}) {
+                    $auth_key = $row->{auth_key};
+                    $port = $row->{port};
+                }
+
                 print LOG "Checkpoint 4\n";
-                
-                my $auth_key = $auth_token->as_string;
                 
                 $sth->execute(
                     $auth_key
-                  , $user_app_service_port
+                  , $port
                   , $name_provided
                   , md5_hex( $password )
                 ) || print LOG "DB error: " . $sth->errst . "\n";
