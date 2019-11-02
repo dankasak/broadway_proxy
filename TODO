@@ -1,0 +1,30 @@
+This file contains known issues and ideas to be worked on
+
+- port configuration
+  some port numbers are hardcoded
+  marked with comment >>>> # TODO: port config from sqlite
+
+  default ports are initialized via db setup, see ./schema_upgrades
+  they can be modified via Datasheet in config.pl
+
+- session management
+  cookies are created without lifetime, as session-cookies
+
+  some browsers do not clear session cookies on exit
+  https://makandracards.com/makandra/28275-psa-chrome-and-firefox-do-not-always-clear-session-cookies-on-exit
+
+  this might become a problem when session-cookie is properly 
+  cleared by browser. Existing broadway sessions will never get 
+  closed and can no longer be accessed.
+
+- session management
+  connecting to the proxy service creates a new auth cookie 
+  when cookie doesn't exist or existing cookie is not found in db
+
+  after user authentication via login form, a new auth cookie is 
+  created in auth_service.pl. It is written to the db (Checkpoint 4)
+  and sent to the browser (Checkpoint 5,6)
+
+  described behaviour above is overwriting any existing session info
+  running with same user in a different browser.
+

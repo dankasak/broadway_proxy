@@ -216,11 +216,11 @@ sub cookie_to_port {
             return $row->{port};
         } else {
             print $LOG "Auth key not found in DB. Back to the login screen ...\n";
-            return 10001;
+            return 10001; # TODO: port config from sqlite
         }
     } else {
         print $LOG "Didn't find an auth key ... presenting the login screen ...\n";
-        return 10001;
+        return 10001; # TODO: port config from sqlite
     }
     
 }
@@ -249,8 +249,8 @@ sub syswrite {
         }
         
         if ( ! $port ) {
-            print $LOG "Couldn't resolve port. Redirecting to login port ( 10001 )\n";
-            $port = 10001;
+            print $LOG "Couldn't resolve port. Redirecting to login port ( 10001 )\n"; # TODO: port config from sqlite
+            $port = 10001; # TODO: port config from sqlite
         }
         
         print $LOG "Opening socket to host [$host] port [$port]\n";
@@ -277,8 +277,8 @@ sub syswrite {
             
             $self->{remote} = IO::Socket::INET->new(
                 PeerAddr => $host
-              , PeerPort => 10001
-            ) || die "Unable to connect to $host:10001: $!";
+              , PeerPort => 10001 # TODO: port config from sqlite
+            ) || die "Unable to connect to $host:10001: $!"; # TODO: port config from sqlite
             
         }
         

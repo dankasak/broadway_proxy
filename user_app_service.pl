@@ -137,7 +137,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
     sub find_available_port{
 
         my $available_port = undef;
-        foreach my $port ( 10002 .. 20000 ) {
+        foreach my $port ( 10002 .. 20000 ) { # TODO: port config from sqlite
 
             my $sock = IO::Socket::INET->new(
                 LocalAddr => 'localhost'
@@ -209,7 +209,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
                 
                 print LOG "auth cookie and app selection checks out ... launching session manager ...\n";
                 my $port = find_available_port();
-                my $display = $port - 10001;
+                my $display = $port - 10001; # TODO: port config from sqlite
                 
                 # Fork a session manager instance
                 my $pid = fork();
