@@ -9,6 +9,9 @@ use Data::GUID;
 use IO::Socket::INET;
 use Data::Dumper;
 
+my $LOGFILE = ">>/tmp/user_app_service.log";
+
+# Determine the config base
 my $config_dir;
 
 if ( $ENV{'XDG_CONFIG_HOME'} ) {
@@ -162,7 +165,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
         my $app         = $cgi->param( 'app' );
         my $path        = $cgi->path_info;
         
-        open LOG , ">>/tmp/user_app_service.log"
+        open LOG , $LOGFILE
             || die( $! );
         
         select LOG;
@@ -244,6 +247,10 @@ if ( my $row = $sth->fetchrow_hashref ) {
                       , "--command=" . $row->{app_command}
                     );
                     
+                    # redirect exec process output to $LOGFILE
+                    open STDOUT, $LOGFILE or die $!;
+                    open STDERR, $LOGFILE or die $!;
+
                     exec( @args )
                         || print LOG "Exec in child failed!\n" . $! . "\n";
                     

@@ -9,6 +9,9 @@ use Data::GUID;
 use IO::Socket::INET;
 use Data::Dumper;
 
+my $LOGFILE = ">>/tmp/webserver.log";
+
+# Determine the config base
 my $config_dir;
 
 if ( $ENV{'XDG_CONFIG_HOME'} ) {
@@ -178,7 +181,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
         
         my $path = $cgi->path_info;
         
-        open LOG , ">>/tmp/webserver.log"
+        open LOG , $LOGFILE
             || die( $! );
         
         select LOG;

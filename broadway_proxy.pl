@@ -22,14 +22,13 @@ use warnings;
 use strict;
 
 use Data::Dumper;
-
 use DBI;
-
 use IO::Socket;
 use IO::Select;
 
-# Determine the config base
+my $LOGFILE = ">>/tmp/broadway.log";
 
+# Determine the config base
 my $config_dir;
 
 if ( $ENV{'XDG_CONFIG_HOME'} ) {
@@ -169,7 +168,7 @@ sub new {
     
     bless $self, $class;
     
-    open( $LOG , ">>/tmp/broadway.log" )
+    open( $LOG , $LOGFILE )
         || die( $! );
     
     select $LOG;
