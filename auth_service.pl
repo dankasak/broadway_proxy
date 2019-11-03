@@ -9,7 +9,7 @@ use Data::GUID;
 use IO::Socket::INET;
 use Data::Dumper;
 
-my $LOGFILE = ">>/tmp/webserver.log";
+my $LOGFILE = ">>/tmp/auth_service.log";
 
 # Determine the config base
 my $config_dir;
@@ -45,7 +45,7 @@ my $dbh = DBI->connect(
   , {}    # options hash
 ) || die( DBI->errstr );
 
-my $service_port;
+my $auth_service_port;
 
 # Fetch our port
 my $sth = $dbh->prepare( "select value from simple_config where key = 'auth_service_port'" )
@@ -55,7 +55,7 @@ $sth->execute()
   || die( $sth->errstr );
 
 if ( my $row = $sth->fetchrow_hashref ) {
-    $service_port = $row->{value};
+    $auth_service_port = $row->{value};
 } else {
     die( "Couldn't find auth service port in simple_config!" );
 }
@@ -148,28 +148,6 @@ if ( my $row = $sth->fetchrow_hashref ) {
         }
 
 
-    }
-
-    sub find_available_port{
-
-        my $available_port = undef;
-        foreach my $port ( 10000 .. 20000 ) { # TODO: port config from sqlite
-
-            my $sock = IO::Socket::INET->new(
-                LocalAddr => 'localhost'
-              , LocalPort => $port
-              , Proto     => 'tcp'
-              , ReuseAddr => $^O ne 'MSWin32'
-            );
-
-            if ( $sock ) {
-                close $sock;
-                $available_port = $port;
-                last;
-            }
-
-        }
-        return $available_port;
     }
 
     sub handle_request {
@@ -344,4 +322,4 @@ END_SQL
 
 }
 
-my $pid = WebServer->new( $service_port )->run;
+my $pid = WebServer->new( $auth_service_port )->run;

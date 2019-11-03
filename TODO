@@ -2,12 +2,8 @@ This file contains known issues and ideas to be worked on
 
 issues
 
-- port configuration
-  some port numbers are hardcoded
-  marked with comment >>>> # TODO: port config from sqlite
-
-  default ports are initialized via db setup, see ./schema_upgrades
-  they can be modified via Datasheet in config.pl
+- application selector CSS
+  while login form is beauty, app selector needs styling
 
 ideas
 

@@ -45,20 +45,29 @@ my $dbh = DBI->connect(
   , {}    # options hash
 ) || die( DBI->errstr );
 
-my $service_port;
+sub fetch_simple_config {
+    my $key = shift;
 
-# Fetch our port
-my $sth = $dbh->prepare( "select value from simple_config where key = 'user_app_service_port'" )
-  || die( DBI->errstr );
+    my $sth = $dbh->prepare(
+        "select value from simple_config where key = '$key'" )
+      || die( DBI->errstr );
 
-$sth->execute()
-  || die( $sth->errstr );
+    $sth->execute()
+      || die( $sth->errstr );
 
-if ( my $row = $sth->fetchrow_hashref ) {
-    $service_port = $row->{value};
-} else {
-    die( "Couldn't find auth service port in simple_config!" );
+    my $row = $sth->fetchrow_hashref;
+
+    if ( ! defined $row  ) {
+        die( "Couldn't find '$key' in simple_config!" );
+    }
+    return $row->{value};
 }
+
+# Fetch config db settings
+
+my $user_app_service_port = fetch_simple_config('user_app_service_port');
+my $session_port_first = fetch_simple_config('session_port_first');
+my $session_port_last = fetch_simple_config('session_port_last');
 
 ########################################################################################################
 # This code is based off the following example:
@@ -131,14 +140,14 @@ if ( my $row = $sth->fetchrow_hashref ) {
            print "file $path_relative not found";
         }
 
-
     }
 
     sub find_available_port{
 
         my $available_port = undef;
-        foreach my $port ( 10002 .. 20000 ) { # TODO: port config from sqlite
 
+        foreach my $port ( $session_port_first .. $session_port_last ) {
+print LOG "Try $port\n";
             my $sock = IO::Socket::INET->new(
                 LocalAddr => 'localhost'
               , LocalPort => $port
@@ -208,8 +217,20 @@ if ( my $row = $sth->fetchrow_hashref ) {
             if ( my $row = $sth->fetchrow_hashref ) {
                 
                 print LOG "auth cookie and app selection checks out ... launching session manager ...\n";
+
                 my $port = find_available_port();
-                my $display = $port - 10001; # TODO: port config from sqlite
+
+                if ( ! defined $port ) {
+                    print LOG "Couldn't find a free port in range [$session_port_first..$session_port_last]\n";
+
+                    print_header( 'text/html' );
+                    print "Too many open sessions - please try again later.";
+
+                    close LOG;
+                    return;
+                }
+
+                my $display = $port - $session_port_first + 1;
                 
                 # Fork a session manager instance
                 my $pid = fork();
@@ -306,10 +327,7 @@ if ( my $row = $sth->fetchrow_hashref ) {
                 return;
                 
             }
-
         }
-        
-
     }
 
     sub available_apps_form {
@@ -415,4 +433,4 @@ if ( my $row = $sth->fetchrow_hashref ) {
     
 }
 
-my $pid = WebServer->new( $service_port )->run;
+my $pid = WebServer->new( $user_app_service_port )->run;

@@ -2,3 +2,15 @@
 fixed - redirect exec process output to logfile
 fixed - auth service: reconnect to existing session
 
+03.11.17/fp
+improvement - renamed webserver.log to auth_service.log
+cleanup - removed find_available_port() in auth_service
+cleanup - service startup messages
+fixed - properly handle configured service ports
+improvement - configurable session port range
+  two new simple_config keys (session_port_first, session_port_last)
+  control the session port range. 
+  the port range is initialized to [10003..19999]. 
+  When changing port range, the user_app_service must be restarted.
+  bump db scheme to V.8
+

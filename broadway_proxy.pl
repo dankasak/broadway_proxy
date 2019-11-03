@@ -54,19 +54,33 @@ my $dbh = DBI->connect(
   , {}    # options hash
 ) || die( DBI->errstr );
 
-# Fetch our port
-my $sth = $dbh->prepare( "select value from simple_config where key = 'proxy_port'" )
+# Fetch config db settings
+my ( $proxy_port , $auth_service_port );
+
+my $sth = $dbh->prepare(
+    "select value from simple_config where key = 'proxy_port'" )
   || die( DBI->errstr );
 
 $sth->execute()
   || die( $sth->errstr );
 
-my $proxy_port;
-
 if ( my $row = $sth->fetchrow_hashref ) {
     $proxy_port = $row->{value};
 } else {
-    die( "Couldn't find proxy port in simple_config!" );
+    die( "Couldn't find proxy_port in simple_config!" );
+}
+
+$sth = $dbh->prepare(
+    "select value from simple_config where key = 'auth_service_port'" )
+  || die( DBI->errstr );
+
+$sth->execute()
+  || die( $sth->errstr );
+
+if ( my $row = $sth->fetchrow_hashref ) {
+    $auth_service_port = $row->{value};
+} else {
+    die( "Couldn't find auth_service_port in simple_config!" );
 }
 
 ################################################################
@@ -128,7 +142,7 @@ sub client_ip {
     }
 }
 
-print "Starting a server on 0.0.0.0:$proxy_port\n";
+print "Starting broadway_proxy on http://0.0.0.0:$proxy_port\n";
 my $server = new_server( '0.0.0.0' , $proxy_port );
 $ioset->add( $server );
 
@@ -216,11 +230,11 @@ sub cookie_to_port {
             return $row->{port};
         } else {
             print $LOG "Auth key not found in DB. Back to the login screen ...\n";
-            return 10001; # TODO: port config from sqlite
+            return $auth_service_port;
         }
     } else {
         print $LOG "Didn't find an auth key ... presenting the login screen ...\n";
-        return 10001; # TODO: port config from sqlite
+        return $auth_service_port;
     }
     
 }
@@ -249,8 +263,8 @@ sub syswrite {
         }
         
         if ( ! $port ) {
-            print $LOG "Couldn't resolve port. Redirecting to login port ( 10001 )\n"; # TODO: port config from sqlite
-            $port = 10001; # TODO: port config from sqlite
+            print $LOG "Couldn't resolve port. Redirecting to auth_service\n";
+            $port = $auth_service_port;
         }
         
         print $LOG "Opening socket to host [$host] port [$port]\n";
@@ -277,9 +291,9 @@ sub syswrite {
             
             $self->{remote} = IO::Socket::INET->new(
                 PeerAddr => $host
-              , PeerPort => 10001 # TODO: port config from sqlite
-            ) || die "Unable to connect to $host:10001: $!"; # TODO: port config from sqlite
-            
+              , PeerPort => $auth_service_port
+            ) || die "Unable to connect to $host:$auth_service_port: $!";
+
         }
         
         print $LOG "Socket opened ...\n";
