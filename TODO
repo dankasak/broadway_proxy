@@ -1,0 +1,22 @@
+This file contains known issues and ideas to be worked on
+
+issues
+
+- application selector CSS
+  while login form is beauty, app selector needs styling
+
+ideas
+
+- logging
+  separate debug from production logging
+
+- config.pl and perl Forms
+  using perl forms requires Gtk3 with compiled in broadway support
+  CentOS7.7 lacks broadway support
+
+- startup
+  systemd service definition
+
+- more flexible auth service
+  we'd like to manage users and app permissions remote (AD, LDAP, ERP)
+

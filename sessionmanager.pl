@@ -5,9 +5,10 @@ use Data::Dumper;
 
 my $pid_map = {};
 
+my $LOGFILE = ">>/tmp/session_manager.log";
 my $LOG;
 
-open $LOG , ">>/tmp/session_manager.log"
+open $LOG , $LOGFILE
     || die( "Failed to open session manager log:\n" . $! );
 
 use Getopt::Long;
@@ -39,7 +40,13 @@ sub fork_it {
             $cmd_string = "GDK_BACKEND=broadway BROADWAY_DISPLAY=:$display $cmd_string";
         }
         print $LOG "Executing: [$cmd_string]\n";
-        exec( $cmd_string );
+
+        # redirect exec process output to $LOGFILE
+        open STDOUT, $LOGFILE or die $!;
+        open STDERR, $LOGFILE or die $!;
+
+        exec( $cmd_string )
+          or print $LOG "Couldn't exec $cmd_string ($!)\n";
     } else {
         die( 'Failed to fork: ' . $! );
     }

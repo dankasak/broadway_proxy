@@ -9,6 +9,9 @@ use Data::GUID;
 use IO::Socket::INET;
 use Data::Dumper;
 
+my $LOGFILE = ">>/tmp/auth_service.log";
+
+# Determine the config base
 my $config_dir;
 
 if ( $ENV{'XDG_CONFIG_HOME'} ) {
@@ -42,7 +45,7 @@ my $dbh = DBI->connect(
   , {}    # options hash
 ) || die( DBI->errstr );
 
-my $service_port;
+my $auth_service_port;
 
 # Fetch our port
 my $sth = $dbh->prepare( "select value from simple_config where key = 'auth_service_port'" )
@@ -52,7 +55,7 @@ $sth->execute()
   || die( $sth->errstr );
 
 if ( my $row = $sth->fetchrow_hashref ) {
-    $service_port = $row->{value};
+    $auth_service_port = $row->{value};
 } else {
     die( "Couldn't find auth service port in simple_config!" );
 }
@@ -147,38 +150,15 @@ if ( my $row = $sth->fetchrow_hashref ) {
 
     }
 
-    sub find_available_port{
-
-        my $available_port = undef;
-        foreach my $port ( 10000 .. 20000 ) { # TODO: port config from sqlite
-
-            my $sock = IO::Socket::INET->new(
-                LocalAddr => 'localhost'
-              , LocalPort => $port
-              , Proto     => 'tcp'
-              , ReuseAddr => $^O ne 'MSWin32'
-            );
-
-            if ( $sock ) {
-                close $sock;
-                $available_port = $port;
-                last;
-            }
-
-        }
-        return $available_port;
-    }
-
     sub handle_request {
         
         my $self = shift;
         my $cgi  = shift;
         
-        my $auth_cookie = $cgi->cookie();
-        
+        my $auth_cookie = $cgi->cookie();        
         my $path = $cgi->path_info;
         
-        open LOG , ">>/tmp/webserver.log"
+        open LOG , $LOGFILE
             || die( $! );
         
         select LOG;
@@ -222,23 +202,38 @@ if ( my $row = $sth->fetchrow_hashref ) {
                 print LOG "Got auth row:\n" . Dumper( $row ) . "\n";
                 
                 $message = "name: $row->{username}\n";
+
                 my $auth_token = Data::GUID->new;
+                my $auth_key = $auth_token->as_string;
                 
                 print LOG "Checkpoint 3\n";
                               
                 # update the auth table with last_authenticated, auth_key & port
-                $sql = "update users set last_authenticated = datetime('now', 'localtime'), auth_key = ?, port = ?\n"
-                     . " , display_number = null where username = ? and password = ?";
-                
-                my $sth = $dbh->prepare( $sql ) || print LOG "DB error: " . $dbh->errstr . "\n";
-                
+                $sql = <<'END_SQL';
+                  update users
+                  set
+                    last_authenticated = datetime('now', 'localtime'),
+                    auth_key = ?,
+                    port = ?,
+                    display_number = null
+                  where username = ? and password = ?
+END_SQL
+                my $sth = $dbh->prepare( $sql )
+                  || print LOG "DB error: " . $dbh->errstr . "\n";
+
+                my $port = $user_app_service_port;
+
+                # reconnect to last saved db session
+                if ($row->{auth_key} and $row->{port}) {
+                    $auth_key = $row->{auth_key};
+                    $port = $row->{port};
+                }
+
                 print LOG "Checkpoint 4\n";
-                
-                my $auth_key = $auth_token->as_string;
                 
                 $sth->execute(
                     $auth_key
-                  , $user_app_service_port
+                  , $port
                   , $name_provided
                   , md5_hex( $password )
                 ) || print LOG "DB error: " . $sth->errst . "\n";
@@ -327,4 +322,4 @@ if ( my $row = $sth->fetchrow_hashref ) {
 
 }
 
-my $pid = WebServer->new( $service_port )->run;
+my $pid = WebServer->new( $auth_service_port )->run;
