@@ -14,3 +14,9 @@ improvement - configurable session port range
   When changing port range, the user_app_service must be restarted.
   bump db scheme to V.8
 
+10.11.17/fp
+improvement - application selector form
+  moved app selector into html file, using placeholder for choice options
+  improved app selector CSS
+fixed - elimnated console warnings: "Unknown Mime type"
+improvement - decreased broadwayd startup delay by 1sec

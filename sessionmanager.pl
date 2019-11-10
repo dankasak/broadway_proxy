@@ -56,7 +56,7 @@ sub fork_it {
 my $args = [ 'broadwayd' , '-p' , $port , ':' . $display ];
 fork_it( 'broadwayd', $args );
 
-sleep( 3 );
+sleep( 2 );
 
 $args = [ $command ];
 fork_it( $command  , $args , $display );
