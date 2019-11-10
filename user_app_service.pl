@@ -90,7 +90,7 @@ my $session_port_last = fetch_simple_config('session_port_last');
     my $name_provided = '';
     my $password = '';
     my $message = '';
-    my $auth_cookie_value = undef;
+    my $auth_cookie = undef;
 
     my $root = 'LoginForm';
     
@@ -103,8 +103,8 @@ my $session_port_last = fetch_simple_config('session_port_last');
         print "HTTP/1.0 200 OK$nl";
         print "Content-Type: $content_type; charset=utf-8$nl";
         
-        if ( $auth_cookie_value ) {
-            print "Cookie: auth_key=$auth_cookie_value;$nl";
+        if ( $auth_cookie ) {
+            print "Cookie: auth_key=$auth_cookie;$nl";
             print "Location: /$nl";
         }
         
@@ -118,6 +118,8 @@ my $session_port_last = fetch_simple_config('session_port_last');
         my $content_type  = shift;
         my $cgi = shift;
         my $auth_cookie = shift;
+        my $pattern = shift;
+        my $replacement = shift;
 
         print_header($content_type);
 
@@ -127,14 +129,20 @@ my $session_port_last = fetch_simple_config('session_port_last');
             # For some reason it needs to print some non white space to STDOUT, but not for images only text based files.
             # I would like to get rid of this print statement but when i do all the styling goes out that window.
             #############################################################################################################
-            print STDOUT "<div></div>";
-            #print STDOUT "<div>$message</div>";
 
+            # 10.11.19/fp - commented out next line for testing
+            #print STDOUT "<div></div>";
+
+            #print STDOUT "<div>$message</div>";
             $message = '';
         }
 
         if (-e $path_relative) {
-           print read_file($path_relative, binmode => ":raw");
+            my $contents = read_file($path_relative, binmode => ":raw");
+            if ( defined $pattern) {
+                $contents =~ s/$pattern/$replacement/g;
+            }
+            print $contents;
         }
         else {
            print "file $path_relative not found";
@@ -147,7 +155,7 @@ my $session_port_last = fetch_simple_config('session_port_last');
         my $available_port = undef;
 
         foreach my $port ( $session_port_first .. $session_port_last ) {
-print LOG "Try $port\n";
+
             my $sock = IO::Socket::INET->new(
                 LocalAddr => 'localhost'
               , LocalPort => $port
@@ -194,17 +202,14 @@ print LOG "Try $port\n";
             
             print LOG "Found auth_key and app selection. Checking user_apps ...\n";
             
-            my $sql = "select\n"
-                    . "            app_command\n"
-                    . "from\n"
-                    . "            users\n"
-                    . "inner join  user_apps\n"
-                    . "                          on users.username = user_apps.username\n"
-                    . "inner join  apps\n"
-                    . "                          on user_apps.app_name = apps.app_name\n"
-                    . "where\n"
-                    . "            auth_key = ?\n"
-                    . "        and user_apps.app_name = ?";
+            my $sql = <<'END_SQL';
+              select app_command
+              from users
+              inner join  user_apps on users.username = user_apps.username
+              inner join  apps on user_apps.app_name = apps.app_name
+              where auth_key = ?
+                and user_apps.app_name = ?
+END_SQL
             
             my $sth = $dbh->prepare( $sql )
                 || print LOG $dbh->errstr;
@@ -238,8 +243,11 @@ print LOG "Try $port\n";
                 if ( $pid ) {
                     
                     # We're the master. Update the users table with the port we just grabbed ...
-                    $sql = "update users set port = ? where auth_key = ?";
-                    
+                    $sql = <<'END_SQL';
+                      update users
+                      set port = ?
+                      where auth_key = ?
+END_SQL
                     $sth = $dbh->prepare( $sql )
                         || print LOG $dbh->errstr;
                     
@@ -282,7 +290,7 @@ print LOG "Try $port\n";
                 }
                 
             } else {
-                print LOG "auth cookie and app selection don't match what's in user_apps!\n";
+                print LOG "auth cookie and app selection doesn't match user_apps!\n";
             }
             
         } elsif ( $auth_key ) {
@@ -294,7 +302,12 @@ print LOG "Try $port\n";
             # Authenticate against broadway_user_auth, set last_authenticated, auth_key & port.
             ###########################################################################
             
-            my $sql = "select app_name from users inner join user_apps on users.username = user_apps.username where auth_key = ?";
+            my $sql = <<'END_SQL';
+              select app_name
+              from users
+              inner join user_apps on users.username = user_apps.username
+              where auth_key = ?
+END_SQL
             
             my $sth = $dbh->prepare( $sql )
                 || print LOG $dbh->errstr;
@@ -314,19 +327,61 @@ print LOG "Try $port\n";
             
             $sth->finish();
             
-            if ( $apps ) {
+            if ( $path eq '/' and $apps ) {
                 
                 print LOG "Got authenticated apps\n";
-                
                 print LOG "Checkpoint 3\n";
                               
                 available_apps_form( $cgi , $apps );
 
                 close LOG;
-                
                 return;
                 
             }
+
+          #  See http://de.selfhtml.org/diverses/mimetypen.htm for Mime Types.
+
+            if ($path =~ /\.htm$/  or $path =~ /\.html$/) {
+              serve_file (".$path", 'text/html', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.js$/ ) {
+              serve_file (".$path", 'application/javascript', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.txt$/) {
+              serve_file (".$path", 'text/plain', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.js$/ ) {
+              serve_file (".$path", 'application/javascript', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.png$/) {
+              serve_file (".$path", 'image/png', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.jpg$/ or $path =~ /\.jpeg/) {
+              serve_file (".$path", 'image/jpeg', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.ico$/) {
+              serve_file (".$path", 'image/x-icon', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.css$/) {
+              serve_file (".$path", 'text/css', $cgi, $auth_cookie);
+              return;
+            }
+            elsif ($path =~ /\.(ttf|woff|woff2)$/) {
+              serve_file (".$path", 'application/octet-stream', $cgi, $auth_cookie);
+              return;
+            }
+
+            print STDERR "Unknown Mime type for $path\n";
+
+            # send anyhow
+            serve_file( ".$path", 'text/plain', $cgi, $auth_cookie);
         }
     }
 
@@ -335,102 +390,21 @@ print LOG "Try $port\n";
         my $cgi  = shift;
         my $apps = shift;
         
-        # Now. Let it be said right here and now, that I'm not proud with what's about to happen.
-        # This is mostly a copy/paste of LoginForm/index.html ... with the combo box dynamically generated
-        # from SQLite. Know how to do this nicely? I'm not a web guy. Bite me, and/or provide a patch ...
-        
-        my $first_half = qq {<!DOCTYPE html>
-<html lang="en">
-<head>
-	<title>Login V2</title>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-<!--===============================================================================================-->	
-	<link rel="icon" type="image/png" href="images/icons/favicon.ico"/>
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="vendor/bootstrap/css/bootstrap.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="fonts/font-awesome-4.7.0/css/font-awesome.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="fonts/iconic/css/material-design-iconic-font.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="vendor/animate/animate.css">
-<!--===============================================================================================-->	
-	<link rel="stylesheet" type="text/css" href="vendor/css-hamburgers/hamburgers.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="vendor/animsition/css/animsition.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="vendor/select2/select2.min.css">
-<!--===============================================================================================-->	
-	<link rel="stylesheet" type="text/css" href="vendor/daterangepicker/daterangepicker.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="css/util.css">
-	<link rel="stylesheet" type="text/css" href="css/main.css">
-<!--===============================================================================================-->
-</head>
-<body>
-	
-	<div class="limiter">
-		<div class="container-login100">
-			<div class="wrap-login100">
-				<form class="login100-form validate-form" method="post">
-					<span class="login100-form-title p-b-26">
-						Select an app from the list of configured apps for this login:
-					</span>
+        my $placeholder = "<option>Placeholder for Apps</option>";
+        my $options = "";
 
-					<div class="wrap-input100">
-						<select type="combo" name="app" placeholder="Select app...">};
-    
-        my $second_half = qq {                                                </select>
-						<span class="focus-input100" data-placeholder="app"></span>
-					</div>
-
-					<div class="container-login100-form-btn">
-						<div class="wrap-login100-form-btn">
-							<div class="login100-form-bgbtn"></div>
-							<button class="login100-form-btn">
-								Launch
-							</button>
-						</div>
-					</div>
-
-				</form>
-			</div>
-		</div>
-	</div>
-	
-
-	<div id="dropDownSelect1"></div>
-	
-<!--===============================================================================================-->
-	<script src="vendor/jquery/jquery-3.2.1.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/animsition/js/animsition.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/bootstrap/js/popper.js"></script>
-	<script src="vendor/bootstrap/js/bootstrap.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/select2/select2.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/daterangepicker/moment.min.js"></script>
-	<script src="vendor/daterangepicker/daterangepicker.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/countdowntime/countdowntime.js"></script>
-<!--===============================================================================================-->
-	<script src="js/main.js"></script>
-
-</body>
-</html>};
-        
-        print_header( 'text/html' );
-        
-        print $first_half;
+        # build choice option list
         foreach my $app ( @{$apps} ) {
-            print "                <option>$app</option>\n";
+            $options .= "<option>$app</option>\n";
         }
-        print $second_half;
+        
+        serve_file (
+          "app_chooser.html", 'text/html', 
+          $cgi, 
+          $auth_cookie,
+          $placeholder,
+          $options);
     }
-    
 }
 
 my $pid = WebServer->new( $user_app_service_port )->run;

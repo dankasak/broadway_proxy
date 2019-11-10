@@ -134,9 +134,11 @@ if ( my $row = $sth->fetchrow_hashref ) {
             # For some reason it needs to print some non white space to STDOUT, but not for images only text based files.
             # I would like to get rid of this print statement but when i do all the styling goes out that window.
             #############################################################################################################
-            print STDOUT "<div></div>";
-            #print STDOUT "<div>$message</div>";
 
+            # 10.11.19/fp - commented out next line for testing
+            #print STDOUT "<div></div>";
+
+            #print STDOUT "<div>$message</div>";
             $message = '';
         }
 
@@ -146,7 +148,6 @@ if ( my $row = $sth->fetchrow_hashref ) {
         else {
            print "file $path_relative not found";
         }
-
 
     }
 
@@ -261,7 +262,6 @@ END_SQL
                 print LOG "Exiting handle_request()\n";
                 
                 close LOG;
-                
                 return;
                 
             }
@@ -289,37 +289,44 @@ END_SQL
           serve_file (".$path", 'text/html', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.js$/ ) {
+        elsif ($path =~ /\.js$/ ) {
           serve_file (".$path", 'application/javascript', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.txt$/) {
+        elsif ($path =~ /\.txt$/) {
           serve_file (".$path", 'text/plain', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.js$/ ) {
+        elsif ($path =~ /\.js$/ ) {
           serve_file (".$path", 'application/javascript', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.png$/) {
+        elsif ($path =~ /\.png$/) {
           serve_file (".$path", 'image/png', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.jpg$/ or $path =~ /\.jpeg/) {
+        elsif ($path =~ /\.jpg$/ or $path =~ /\.jpeg/) {
           serve_file (".$path", 'image/jpeg', $cgi, $auth_cookie);
           return;
         }
-        if ($path =~ /\.ico$/) {
+        elsif ($path =~ /\.ico$/) {
           serve_file (".$path", 'image/x-icon', $cgi, $auth_cookie);
+          return;
+        }
+        elsif ($path =~ /\.css$/) {
+          serve_file (".$path", 'text/css', $cgi, $auth_cookie);
+          return;
+        }
+        elsif ($path =~ /\.(ttf|woff|woff2)$/) {
+          serve_file (".$path", 'application/octet-stream', $cgi, $auth_cookie);
           return;
         }
 
         print STDERR "Unknown Mime type for $path\n";
 
+        # send anyhow
         serve_file( ".$path", 'text/plain', $cgi, $auth_cookie);
-
     }
-
 }
 
 my $pid = WebServer->new( $auth_service_port )->run;
