@@ -203,7 +203,7 @@ my $session_port_last = fetch_simple_config('session_port_last');
             print LOG "Found auth_key and app selection. Checking user_apps ...\n";
             
             my $sql = <<'END_SQL';
-              select app_command
+              select app_command, users.username
               from users
               inner join  user_apps on users.username = user_apps.username
               inner join  apps on user_apps.app_name = apps.app_name
@@ -273,6 +273,7 @@ END_SQL
                       , "../sessionmanager.pl"
                       , "--display=$display"
                       , "--port=$port"
+                      , "--username=" . $row->{username}
                       , "--command=" . $row->{app_command}
                     );
                     

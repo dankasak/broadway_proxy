@@ -13,11 +13,12 @@ open $LOG , $LOGFILE
 
 use Getopt::Long;
 
-my ( $display , $port , $command );
+my ( $display , $port , $command, $username );
 
 GetOptions(
     'display=i'            => \$display
   , 'port=i'               => \$port
+  , 'username=s'           => \$username
   , 'command=s'            => \$command
 );
 
@@ -37,9 +38,9 @@ sub fork_it {
     } elsif ( defined ( $pid ) ) {
         my $cmd_string = join(' ', @{$args});
         if ( $display ) {
-            $cmd_string = "GDK_BACKEND=broadway BROADWAY_DISPLAY=:$display $cmd_string";
+            $cmd_string = "BROADWAY_USER=$username GDK_BACKEND=broadway BROADWAY_DISPLAY=:$display $cmd_string";
         }
-        print $LOG "Executing: [$cmd_string]\n";
+        print $LOG "Executing: [$cmd_string] username $username\n";
 
         # redirect exec process output to $LOGFILE
         open STDOUT, $LOGFILE or die $!;
