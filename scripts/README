@@ -1,0 +1,17 @@
+This directory contains a sample script
+for running Gtk application in a bwrap sandbox,
+setting up a virtual user environment with restricted
+access to a small set of predefined directories.
+
+In order for this to work, the connection between broadwayd
+and the Gtk application must be must be switched to use tcp sockets 
+instead of the default unix domain sockets. With Gtk3, this can be done
+by using a BROADWAY_DISPLAY setting of the form :tcp<N>, whereas <N>
+is the display number. It will result in using tcp port 9090 + <N>
+for communication between the Gtk app and broadwayd. 
+
+We couldn't figure out yet, 
+how to make unix domain sockets work with bwrap.
+
+@see sessionmanager.patch for details
+

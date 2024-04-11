@@ -1,11 +1,11 @@
 #!/bin/sh
 #*****************************************************************
 #*
-#*   OPAG - Opag Informatik AG
+#*   casymir schweiz ag
 #*
 #*   bwrap_opg5 - bwrap script for OPG5
 #*
-#*   Created :   16.02.23 A. Kurz
+#*   Created :   16.02.23 A. Kurz, F. Paquet
 #*
 #*****************************************************************
 
@@ -146,7 +146,7 @@ fi
 
 # debugging commands
 #OPG_CMD="ls -la /home/${BROADWAY_USER}"
-#OPG_CMD="xterm"
+#OPG_CMD="/usr/bin/printenv"
 
 #
 ## startup log
@@ -158,6 +158,8 @@ echo "APPL_INI_FILE=${APPL_INI_FILE}" >> ${LOG_FILE}
 echo "APPL_PROFILE=${APPL_PROFILE}" >> ${LOG_FILE}
 echo "BROADWAY_USERS_HOME=${BROADWAY_USERS_HOME}" >> ${LOG_FILE}
 echo "BROADWAY_USER_DIR=${BROADWAY_USER_DIR}" >> ${LOG_FILE}
+echo "GDK_BACKEND=${GDK_BACKEND}" >> ${LOG_FILE}
+echo "BROADWAY_DISPLAY=${BROADWAY_DISPLAY}" >> ${LOG_FILE}
 echo "BWRAP_MOUNTS=${BWRAP_MOUNTS}" >> ${LOG_FILE}
 echo "" >> ${LOG_FILE}
 echo "Application Environment" >> ${LOG_FILE}
@@ -228,13 +230,16 @@ exec /usr/bin/bwrap --unshare-user \
   --dev-bind /dev /dev \
   --tmpfs /tmp --tmpfs /run \
   --setenv HOME "${BWRAP_USER_HOME}" \
-  --chdir "/home/${BROADWAY_USER}" \
+  --chdir "${BWRAP_USER_HOME}" \
   --setenv USER "${BROADWAY_USER}" \
+  --setenv GDK_BACKEND "${GDK_BACKEND}" \
+  --setenv BROADWAY_DISPLAY "${BROADWAY_DISPLAY}" \
   --setenv G_MESSAGES_DEBUG "${G_MESSAGES_DEBUG}" \
   --setenv XDG_DATA_DIRS "${XDG_DATA_DIRS}" \
   --setenv PATH "${PATH}" \
   --setenv LANG "${LANG}" \
+  --setenv LD_LIBRARY_PATH "/opt/casy/gtk3/.Linux.4.x86_64/lib:/usr/lib" \
   --new-session \
-  ${OPG_CMD} >>${LOG_FILE} 2>&1
+  ${OPG_CMD} 2>&1 >>${LOG_FILE}
 
 # NOTREACHED

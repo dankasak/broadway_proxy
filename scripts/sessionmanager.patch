@@ -1,0 +1,22 @@
+diff --git a/sessionmanager.pl b/sessionmanager.pl
+index 0efe3c5..60526dd 100644
+--- a/sessionmanager.pl
++++ b/sessionmanager.pl
+@@ -38,7 +38,7 @@ sub fork_it {
+     } elsif ( defined ( $pid ) ) {
+         my $cmd_string = join(' ', @{$args});
+         if ( $display ) {
+-            $cmd_string = "BROADWAY_USER=$username GDK_BACKEND=broadway BROADWAY_DISPLAY=:$display $cmd_string";
++            $cmd_string = "BROADWAY_USER=$username GDK_BACKEND=broadway BROADWAY_DISPLAY=:tcp$display $cmd_string";
+         }
+         print $LOG "Executing: [$cmd_string] username $username\n";
+ 
+@@ -54,7 +54,7 @@ sub fork_it {
+     
+ }
+ 
+-my $args = [ 'broadwayd' , '-p' , $port , ':' . $display ];
++my $args = [ 'broadwayd' , '-p' , $port , ':tcp' . $display ];
+ fork_it( 'broadwayd', $args );
+ 
+ sleep( 2 );
