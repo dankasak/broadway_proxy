@@ -10,8 +10,20 @@ by using a BROADWAY_DISPLAY setting of the form :tcp<N>, whereas <N>
 is the display number. It will result in using tcp port 9090 + <N>
 for communication between the Gtk app and broadwayd. 
 
-We couldn't figure out yet, 
-how to make unix domain sockets work with bwrap.
-
 @see sessionmanager.patch for details
+
+Explanation
+
+Broadwayd uses **abstract** unix domain sockets for communication 
+between broadwayd and Gtk application. The name of the abstract
+socket is created with the aid of g_get_user_runtime_dir(). 
+This way, it will create different socket names for broadwayd (runing 
+under an ordinary user account) and the Gtk application (running under 
+a virtual bwrap user).
+
+For abstract unix domain sockets to work with different user contexts,
+Gdk broadway must be patched to use a fixed abstract socket name, not
+depending on the user.
+
+@see gdk_broadway_socket.patch for details
 

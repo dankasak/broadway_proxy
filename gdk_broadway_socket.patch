@@ -1,0 +1,26 @@
+diff --git a/gdk/broadway/broadwayd.c b/gdk/broadway/broadwayd.c
+index 99633ee..ea081e3 100644
+--- a/gdk/broadway/broadwayd.c
++++ b/gdk/broadway/broadwayd.c
+@@ -513,7 +513,7 @@ main (int argc, char *argv[])
+ 
+       port = strtol (display + strlen (":"), NULL, 10);
+       basename = g_strdup_printf ("broadway%d.socket", port + 1);
+-      path = g_build_filename (g_get_user_runtime_dir (), basename, NULL);
++      path = g_build_filename ("/broadwayd", basename, NULL);
+       g_free (basename);
+ 
+       g_print ("Listening on %s\n", path);
+diff --git a/gdk/broadway/gdkbroadway-server.c b/gdk/broadway/gdkbroadway-server.c
+index 8d33293..5ebb0e6 100644
+--- a/gdk/broadway/gdkbroadway-server.c
++++ b/gdk/broadway/gdkbroadway-server.c
+@@ -130,7 +130,7 @@ _gdk_broadway_server_new (const char *display, GError **error)
+ 
+       port = strtol (display + strlen (":"), NULL, 10);
+       basename = g_strdup_printf ("broadway%d.socket", port + 1);
+-      path = g_build_filename (g_get_user_runtime_dir (), basename, NULL);
++      path = g_build_filename ("/broadwayd", basename, NULL);
+       g_free (basename);
+ 
+       address = g_unix_socket_address_new_with_type (path, -1,
