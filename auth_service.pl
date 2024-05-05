@@ -266,6 +266,27 @@ END_SQL
                         print LOG "Reconnect to last saved session\n";
                         $auth_key = $row->{auth_key};
                         $port = $row->{port};
+
+                        print LOG "try connecting to $port";
+                        my $host = 'localhost';
+
+                        my $socket;
+
+                        eval {
+                            $socket = IO::Socket::INET->new(
+                                PeerAddr => $host
+                              , PeerPort => $port
+                            ) || die "Unable to connect to $host:$port: $!";
+                        };
+
+                        my $err = $@;
+
+                        if ( $err ) {
+                            print LOG "Cannot connect to $port, redirect to app chooser\n";
+                            $port = $user_app_service_port;
+                        } else  {
+                            $socket->close();
+                        }
                     }
                 }
 

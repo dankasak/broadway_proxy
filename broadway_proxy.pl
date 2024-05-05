@@ -319,6 +319,7 @@ sub syswrite {
         my $err = $@;
         
         if ( $err ) {
+            print $LOG "Cannot connect to $port, clearing auth_key\n";
             
             my $sth = $dbh->prepare(
                 "update users set auth_key = null , port = null , display_number = null where port = ?"
