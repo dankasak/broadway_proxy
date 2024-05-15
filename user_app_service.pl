@@ -154,7 +154,28 @@ my $session_port_last = fetch_simple_config('session_port_last');
 
         my $available_port = undef;
 
+        # fetch ports, which might be in use
+
+        my $sql = <<'END_SQL';
+          select distinct port from users
+          where port is not NULL
+END_SQL
+        my $sth = $dbh->prepare( $sql )
+          || print LOG "DB error: " . $dbh->errstr . "\n";
+
+        $sth->execute()
+          || print LOG "DB error: " . $sth->errst . "\n";
+
+        my %portlist;
+
+        while ( my $row = $sth->fetchrow_hashref ) {
+            $portlist{$row->{port}} = $row->{port};
+        }
+
+        $sth->finish();
+
         foreach my $port ( $session_port_first .. $session_port_last ) {
+            next if $portlist{$port}; # port might be in use
 
             my $sock = IO::Socket::INET->new(
                 LocalAddr => 'localhost'
@@ -203,7 +224,7 @@ my $session_port_last = fetch_simple_config('session_port_last');
             print LOG "Found auth_key and app selection. Checking user_apps ...\n";
             
             my $sql = <<'END_SQL';
-              select app_command
+              select app_command, users.username
               from users
               inner join  user_apps on users.username = user_apps.username
               inner join  apps on user_apps.app_name = apps.app_name
@@ -273,6 +294,7 @@ END_SQL
                       , "../sessionmanager.pl"
                       , "--display=$display"
                       , "--port=$port"
+                      , "--username=" . $row->{username}
                       , "--command=" . $row->{app_command}
                     );
                     

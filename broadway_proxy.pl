@@ -203,6 +203,36 @@ sub new {
     
 }
 
+sub find_other_user_with_port {
+    my ( $username , $port ) = @_;
+
+    print $LOG "Checking other users having port $port (not $username)\n";
+
+    # ensure not stealing other users session
+    my $sql = 'select username from users where username != ? and port = ?';
+
+    my $sth = $dbh->prepare( $sql )
+        || print $LOG $dbh->errstr;
+
+    #print $LOG $sth->{Statement} . "\n";
+
+    $sth->execute($username, $port )
+        || print $LOG $sth->errstr . "\n";
+
+    my $row = $sth->fetchrow_hashref;
+
+    $sth->finish();
+
+    if ( $row ) {
+        my $other_user = $row->{username};
+        print $LOG "Found user $other_user having same port $port as $username\n";
+        return $other_user;
+    }
+
+    print $LOG "No other users having port $port\n";
+    return undef;
+}
+
 sub cookie_to_port {
     
     my ( $self , $cookie ) = @_;
@@ -227,6 +257,16 @@ sub cookie_to_port {
         
         if ( my $row = $sth->fetchrow_hashref() ) {        
             print $LOG "Successfully mapped auth key to port $row->{port}\n";
+
+            # ensure not stealing portsd from other users
+            my $other_user = find_other_user_with_port(
+                $row->{username}, $row->{port});
+            
+            if ( $other_user ) {
+                print $LOG "Redirect to auth_service\n";
+                return $auth_service_port;
+            }
+
             return $row->{port};
         } else {
             print $LOG "Auth key not found in DB. Back to the login screen ...\n";
@@ -279,6 +319,7 @@ sub syswrite {
         my $err = $@;
         
         if ( $err ) {
+            print $LOG "Cannot connect to $port, clearing auth_key\n";
             
             my $sth = $dbh->prepare(
                 "update users set auth_key = null , port = null , display_number = null where port = ?"

@@ -1,0 +1,245 @@
+#!/bin/sh
+#*****************************************************************
+#*
+#*   casymir schweiz ag
+#*
+#*   bwrap_opg5 - bwrap script for OPG5
+#*
+#*   Created :   16.02.23 A. Kurz, F. Paquet
+#*
+#*****************************************************************
+
+# Setttings
+
+# the base directory for virtual home, tmp, log
+# can be overridden via env BROADWAY_BASEDIR
+BROADWAY_BASEDIR="${BROADWAY_BASEDIR:-/home/broadwayd}"
+
+# environment within bwrap
+G_MESSAGES_DEBUG=
+XDG_DATA_DIRS=/usr/share
+OPG_INSTALL_DIR=/opt/casy/gtk3/.Linux.4.x86_64
+PATH=${OPG_INSTALL_DIR}/bin:/opt/casy/bin:/usr/bin:/bin:.
+LANG=de_CH.utf-8
+
+# Setup logging
+LOG_PREFIX="broadway $0:"
+LOG_PATH="${BROADWAY_BASEDIR}/log"
+LOG_FILE="${LOG_PATH}/${BROADWAY_USER:-unknown}.log"
+
+# postfix for username, running in developer mode
+DEVEL_POSTFIX="_devel"
+
+fatal() {
+  msg="${LOG_PREFIX} Fatal: $*"
+  echo "$msg"
+  echo "$msg" | logger -p local3.info
+  exit 1
+}
+
+if [ -n "${LOG_PATH}" -a ! -d "${LOG_PATH}" ]; then
+  mkdir -p "${LOG_PATH}" || \
+  fatal "${LOG_PATH}: cannot create directory"
+fi
+
+# comment out to preserve logfile
+[ -n "${LOG_FILE}" ] && rm -f ${LOG_FILE}
+
+die() {
+  echo "${LOG_PREFIX} Abort: $1" | tee -a "${LOG_FILE}"
+  exit 1
+}
+
+log() {
+  echo "${LOG_PREFIX} $*" | tee -a "${LOG_FILE}"
+}
+
+# Parse script arguments
+OPTS="htvl:p:"
+
+usage() {
+  echo "Usage: start_opg [-${OPTS}] CONF_KEY [ApplBaseDir]" | tee -a "${LOG_FILE}"
+  echo "  -h            show usage" | tee -a "${LOG_FILE}"
+  echo "  -t            run in terminal, experimental" | tee -a "${LOG_FILE}"
+  echo "  -v            enable debug output" | tee -a "${LOG_FILE}"
+  echo "  -p Profile    enable developer mode [AppDevel|SysDevel]" | tee -a "${LOG_FILE}"
+  echo "  -l locale     set LANG (default ${LANG})" | tee -a "${LOG_FILE}"
+  echo ""
+  echo "Environment:"
+  echo "  GDK_BACKEND        required, (${GDK_BACKEND})"
+  echo "  BROADWAY_DISPLAY   required, (${BROADWAY_DISPLAY})"
+  echo "  BROADWAY_USER      required, virtual username (${BROADWAY_USER})"
+  echo "  BROADWAY_BASEDIR   optional, base for virtual users (${BROADWAY_BASEDIR})"
+  exit 1
+}
+
+while getopts $opts ":${OPTS}" c
+do
+    case $c in
+    h) usage;;
+    t) RUN_IN_TERMINAL=Yes;;
+    v) G_MESSAGES_DEBUG=all;;
+    l) LANG=${OPTARG};;
+    p) APPL_PROFILE="-p ${OPTARG}";;
+    \?) log "illegal option -- ${OPTARG}"
+    usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+# script arguments
+CONF_KEY="$1"
+
+# default application settings
+APPL_BASE_DIR="${2:-/home/kommerz}"
+APPL_INI_FILE="${APPL_BASE_DIR}/local/opg"
+
+#
+## variables
+#
+BROADWAY_USERS_HOME="${BROADWAY_BASEDIR}/home"
+BROADWAY_USER_DIR="${BROADWAY_USERS_HOME}/${BROADWAY_USER}"
+BWRAP_USER_HOME="/home/${BROADWAY_USER}"
+
+BWRAP_MOUNTS="
+    --ro-bind-try /home/kommerz /home/kommerz"
+
+if [ -n "${APPL_PROFILE}" ]; then
+  log "developer mode enabled"
+  BROADWAY_USER_DIR="${BROADWAY_USERS_HOME}/${BROADWAY_USER}${DEVEL_POSTFIX}"
+  BWRAP_USER_HOME="/home/${BROADWAY_USER}${DEVEL_POSTFIX}"
+
+  if [ "${APPL_BASE_DIR}" != "/home/kommerz" ]; then
+    BWRAP_MOUNTS="${BWRAP_MOUNTS} --ro-bind-try ${APPL_BASE_DIR} ${APPL_BASE_DIR}"
+  fi
+fi
+
+# add additional mounts for required symbolic links
+for subdir in \
+  local \
+  r1/Dist \
+  r1/Source \
+  r1/Kommerz
+do
+  if [ -L "${APPL_BASE_DIR}/${subdir}" ]; then
+    LINK_TARGET=`readlink ${APPL_BASE_DIR}/${subdir}`
+    BWRAP_MOUNTS="${BWRAP_MOUNTS}
+    --ro-bind-try ${APPL_BASE_DIR}/${subdir} ${LINK_TARGET}"
+  fi
+done
+
+#
+## generate random userid over 400000
+#
+USER_ID=$((40000 + RANDOM % 10000))
+
+
+OPG_EXE="${OPG_INSTALL_DIR}/bin/opg"
+OPG_CMD="${OPG_EXE} ${APPL_PROFILE} ${APPL_INI_FILE} ${CONF_KEY} ${APPL_BASE_DIR}"
+
+if [ "${RUN_IN_TERMINAL}" = "Yes" ]; then
+  # Terminal has autorisation problems
+  #  Authentication Rejected, reason : None of the authentication protocols
+  #  specified are supported and host-based authentication failed
+  OPG_CMD="/usr/bin/xfce4-terminal -x /bin/bash -c \"${OPG_CMD}\""
+fi
+
+# debugging commands
+#OPG_CMD="ls -la /home/${BROADWAY_USER}"
+#OPG_CMD="/usr/bin/printenv"
+
+#
+## startup log
+#
+echo "Starting bwrap session" >> ${LOG_FILE}
+echo "CONF_KEY=${CONF_KEY}" >> ${LOG_FILE}
+echo "APPL_BASE_DIR=${APPL_BASE_DIR}" >> ${LOG_FILE}
+echo "APPL_INI_FILE=${APPL_INI_FILE}" >> ${LOG_FILE}
+echo "APPL_PROFILE=${APPL_PROFILE}" >> ${LOG_FILE}
+echo "BROADWAY_USERS_HOME=${BROADWAY_USERS_HOME}" >> ${LOG_FILE}
+echo "BROADWAY_USER_DIR=${BROADWAY_USER_DIR}" >> ${LOG_FILE}
+echo "GDK_BACKEND=${GDK_BACKEND}" >> ${LOG_FILE}
+echo "BROADWAY_DISPLAY=${BROADWAY_DISPLAY}" >> ${LOG_FILE}
+echo "BWRAP_MOUNTS=${BWRAP_MOUNTS}" >> ${LOG_FILE}
+echo "" >> ${LOG_FILE}
+echo "Application Environment" >> ${LOG_FILE}
+echo "G_MESSAGES_DEBUG=${G_MESSAGES_DEBUG}" >> ${LOG_FILE}
+echo "XDG_DATA_DIRS=${XDG_DATA_DIRS}" >> ${LOG_FILE}
+echo "OPG_INSTALL_DIR=${OPG_INSTALL_DIR}" >> ${LOG_FILE}
+echo "PATH=${PATH}" >> ${LOG_FILE}
+echo "LANG=${LANG}" >> ${LOG_FILE}
+echo "" >> ${LOG_FILE}
+echo "OPG_CMD=${OPG_CMD}" >> ${LOG_FILE}
+echo "" >> ${LOG_FILE}
+
+#
+## run some checks
+#
+
+if [ ! -n "${CONF_KEY}" ]; then
+  log "Missing CONF_KEY"
+  usage
+fi
+
+if [ ! -n "${BROADWAY_USER}" ]; then
+  die "BROADWAY_USER missing in envronment"
+fi
+
+if [ ! -n "${GDK_BACKEND}" ]; then
+  die "GDK_BACKEND missing in envronment"
+fi
+
+if [ ! -n "${BROADWAY_DISPLAY}" ]; then
+  die "BROADWAY_DISPLAY missing in envronment"
+fi
+
+if [ ! -d "${BROADWAY_BASEDIR}" ]; then
+  die "${BROADWAY_BASEDIR}: directory doesn't exist (BROADWAY_BASEDIR)"
+fi
+
+if [ ! -d "${BROADWAY_USER_DIR}" ]; then
+  echo "Creating BROADWAY_USER_DIR ${BROADWAY_USER_DIR}" >> ${LOG_FILE}
+  mkdir -p "${BROADWAY_USER_DIR}" || \
+  die "${BROADWAY_USER_DIR}: cannot create directory"
+fi
+
+#
+## run bubblewrap
+#
+exec /usr/bin/bwrap --unshare-user \
+  --dir /tmp \
+  --dir /var \
+  --uid "${USER_ID}" \
+  --gid "${USER_ID}" \
+  --symlink /usr/lib /lib \
+  --symlink /usr/lib64 /lib64 \
+  --symlink /usr/bin /bin \
+  --symlink /usr/bin /sbin \
+  --ro-bind /usr/lib /usr/lib \
+  --ro-bind /usr/lib64 /usr/lib64 \
+  --ro-bind /usr/bin /usr/bin \
+  --ro-bind /etc /etc \
+  --ro-bind-try /etc/gtk-2.0 /etc/gtk-2.0 \
+  --ro-bind-try /etc/gtk-3.0 /etc/gtk-3.0 \
+  --ro-bind-try /opt/casy /opt/casy \
+  --ro-bind-try /home/kommerz /home/kommerz \
+  ${BWRAP_MOUNTS} \
+  --ro-bind /usr/share /usr/share \
+  --bind "${BROADWAY_USER_DIR}" "${BWRAP_USER_HOME}" \
+  --proc /proc \
+  --dev-bind /dev /dev \
+  --tmpfs /tmp --tmpfs /run \
+  --setenv HOME "${BWRAP_USER_HOME}" \
+  --chdir "${BWRAP_USER_HOME}" \
+  --setenv USER "${BROADWAY_USER}" \
+  --setenv GDK_BACKEND "${GDK_BACKEND}" \
+  --setenv BROADWAY_DISPLAY "${BROADWAY_DISPLAY}" \
+  --setenv G_MESSAGES_DEBUG "${G_MESSAGES_DEBUG}" \
+  --setenv XDG_DATA_DIRS "${XDG_DATA_DIRS}" \
+  --setenv PATH "${PATH}" \
+  --setenv LANG "${LANG}" \
+  --setenv LD_LIBRARY_PATH "/opt/casy/gtk3/.Linux.4.x86_64/lib:/usr/lib" \
+  --new-session \
+  ${OPG_CMD} 2>&1 >>${LOG_FILE}
+
+# NOTREACHED

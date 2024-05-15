@@ -151,6 +151,36 @@ if ( my $row = $sth->fetchrow_hashref ) {
 
     }
 
+    sub find_other_user_with_port {
+        my ( $username , $port ) = @_;
+
+        print LOG "Checking other users having port $port (not $username)\n";
+
+        # ensure not stealing other users session
+        my $sql = 'select username from users where username != ? and port = ?';
+
+        my $sth = $dbh->prepare( $sql )
+            || print LOG $dbh->errstr;
+
+        #print LOG $sth->{Statement} . "\n";
+
+        $sth->execute($username, $port )
+            || print LOG $sth->errstr . "\n";
+
+        my $row = $sth->fetchrow_hashref;
+
+        $sth->finish();
+
+        if ( $row ) {
+            my $other_user = $row->{username};
+            print LOG "Found user $other_user having same port $port as $username\n";
+            return $other_user;
+        }
+
+        print LOG "No other users having port $port\n";
+        return undef;
+    }
+
     sub handle_request {
         
         my $self = shift;
@@ -226,8 +256,38 @@ END_SQL
 
                 # reconnect to last saved db session
                 if ($row->{auth_key} and $row->{port}) {
-                    $auth_key = $row->{auth_key};
-                    $port = $row->{port};
+                    # ensure not stealing portsd from other users
+                    my $other_user = find_other_user_with_port(
+                        $name_provided, $row->{port});
+                    
+                    if ( $other_user ) {
+                        print LOG "Redirect to user_app_service\n";
+                    } else {
+                        print LOG "Reconnect to last saved session\n";
+                        $auth_key = $row->{auth_key};
+                        $port = $row->{port};
+
+                        print LOG "try connecting to $port";
+                        my $host = 'localhost';
+
+                        my $socket;
+
+                        eval {
+                            $socket = IO::Socket::INET->new(
+                                PeerAddr => $host
+                              , PeerPort => $port
+                            ) || die "Unable to connect to $host:$port: $!";
+                        };
+
+                        my $err = $@;
+
+                        if ( $err ) {
+                            print LOG "Cannot connect to $port, redirect to app chooser\n";
+                            $port = $user_app_service_port;
+                        } else  {
+                            $socket->close();
+                        }
+                    }
                 }
 
                 print LOG "Checkpoint 4\n";
